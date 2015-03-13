@@ -127,3 +127,10 @@ if (ZMQ_FOUND AND Boost_FOUND)
 add_subdirectory(dbMQ)
 endif()
 
+find_package(Wt)
+
+if (Wt_FOUND AND Boost_FOUND)
+add_subdirectory(dbWt) 
+endif()
+
+

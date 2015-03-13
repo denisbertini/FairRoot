@@ -1,0 +1,3 @@
+add_subdirectory(gitmodel)
+add_subdirectory(treeview)
+add_subdirectory(filetree)
