@@ -12,6 +12,17 @@
 #include "FairDbWtTreeView.h"
 
 #include <iostream>
+
+// Events Handling
+#include <Wt/WBreak>
+#include <Wt/WCssDecorationStyle>
+#include <sstream>
+#include <boost/lexical_cast.hpp>
+#include <Wt/WLineEdit>
+#include <Wt/WHBoxLayout>
+#include <Wt/Utils>
+
+
 using namespace std;
 
 using namespace Wt;
@@ -35,14 +46,15 @@ FairDbWtTreeView::FairDbWtTreeView(WContainerWidget *parent):
     // DB Comment for Now !!
 
     
-     WVBoxLayout *vbox = new WVBoxLayout();
+     WVBoxLayout *vbox = new WVBoxLayout(this);
      //vbox->addWidget(fileView(), 1);
      //vbox->addWidget(pieChart(), 1);
-     //vbox->setResizable(0);
+     vbox->setResizable(0);
      //vbox->addWidget(fileView(), 1);
-        
+     //WContainerWidget *rFrame = new WContainerWidget(this);   
+     //rFrame->mouseWentUp().connect(this, &FairDbWtTreeView::showMeMouse);
      fTabWidget = new WTabWidget(); 
-     fTabWidget->setStyleClass("tabwidget");  
+     fTabWidget->setStyleClass("tabwidget");
      vbox->addWidget(fTabWidget, 1);
 
      layout->addLayout(vbox, 1, 1);
@@ -61,6 +73,14 @@ FairDbWtTreeView::~FairDbWtTreeView(){
     if (fPopup) delete fPopup;
     if (fPopupActionBox) delete fPopupActionBox;
 }
+
+
+void FairDbWtTreeView::showMeMouse(const WMouseEvent& event) {
+ if (event.button() == WMouseEvent::RightButton) {
+    cout << "-I- RIGHT BUTTON FROM MOUSE" << endl;
+}
+}
+
 
 WText* FairDbWtTreeView::createTitle(const WString& title) {
     WText *result = new WText(title);
@@ -89,11 +109,12 @@ FileTreeTable* FairDbWtTreeView::TreeTableView(){
 
 void FairDbWtTreeView::TreeTableChanged() {
 WTree* aTree = fFileTreeTable->tree(); 
-for (WTreeNodeSet::const_iterator i = aTree->selectedNodes().begin(); 
+  
+  for (WTreeNodeSet::const_iterator i = aTree->selectedNodes().begin(); 
                                   i != aTree->selectedNodes().end(); ++i){
-    WTreeNode *aNode=(*i);
+     WTreeNode *aNode=(*i);
 
-cout << "-I Server: FairDbWtTreeView::TreeTableChanged() Node:" <<  aNode->label()->text().value() << endl;     
+     cout << "-I Server: FairDbWtTreeView::TreeTableChanged() Node:" <<  aNode->label()->text().value() << endl;     
 
      Wt::WTable *table = new Wt::WTable(this);
      table->elementAt(0, 0)->addWidget(new Wt::WText("Item @ row 0, column 0"));
@@ -104,9 +125,10 @@ cout << "-I Server: FairDbWtTreeView::TreeTableChanged() Node:" <<  aNode->label
      cell->addWidget(new Wt::WText("Item @ row 2"));
      cell->setColumnSpan(2);
 
-   fTabWidget->addTab(table, "FirstPar", WTabWidget::PreLoading);
+     WMenuItem *tab = fTabWidget->addTab(table, "FirstPar", WTabWidget::PreLoading);
+     tab->setCloseable(true);
 
-}
+  }
 
 }
 
@@ -147,6 +169,9 @@ void FairDbWtTreeView::folderChanged() {
       fFileFilterModel->setFilterRegExp(folder);
     }
   }
+
+
+
 
 
 void FairDbWtTreeView::showPopup(const WModelIndex& item, const WMouseEvent& event) {
@@ -268,9 +293,219 @@ void FairDbWtTreeView::populateFolders() {
 }
 
 
+//Event Handling
+
+WWidget *FairDbWtTreeView::wMouseEvent()
+{
+  WContainerWidget *result = new WContainerWidget();
+
+  //topic("WMouseEvent", result);
+  //addText(tr("events-WMouseEvent"), result);
+  WContainerWidget *c = new WContainerWidget(result);
+  WHBoxLayout *hlayout = new WHBoxLayout;
+  c->setLayout(hlayout);
+  WContainerWidget *l = new WContainerWidget;
+  WContainerWidget *r = new WContainerWidget;
+  new WText("clicked<br/>doubleClicked<br/>mouseWentOut<br/>mouseWentOver",
+        l);
+  new WText("mouseWentDown<br/>mouseWentUp<br/>mouseMoved<br/>mouseWheel", r);
+  hlayout->addWidget(l);
+  hlayout->addWidget(r);
+  c->resize(600, 300);
+  l->decorationStyle().setBackgroundColor(Wt::gray);
+  r->decorationStyle().setBackgroundColor(Wt::gray);
+  // prevent that firefox interprets drag as drag&drop action
+  l->setStyleClass("unselectable");
+  r->setStyleClass("unselectable");
+  l->clicked().connect(this, &FairDbWtTreeView::showClicked);
+  l->doubleClicked().connect(this, &FairDbWtTreeView::showDoubleClicked);
+  l->mouseWentOut().connect(this, &FairDbWtTreeView::showMouseWentOut);
+  l->mouseWentOver().connect(this, &FairDbWtTreeView::showMouseWentOver);
+  r->mouseMoved().connect(this, &FairDbWtTreeView::showMouseMoved);
+  r->mouseWentUp().connect(this, &FairDbWtTreeView::showMouseWentUp);
+  r->mouseWentDown().connect(this, &FairDbWtTreeView::showMouseWentDown);
+  r->mouseWheel().connect(this, &FairDbWtTreeView::showMouseWheel);
+  r->mouseWheel().preventDefaultAction(true);
+
+  l->setAttributeValue
+    ("oncontextmenu",
+     "event.cancelBubble = true; event.returnValue = false; return false;");
+  r->setAttributeValue
+    ("oncontextmenu",
+     "event.cancelBubble = true; event.returnValue = false; return false;");
+
+  new WBreak(result);
+  new WText("Last event: ", result);
+  mouseEventType_ = new WText(result);
+  new WBreak(result);
+  mouseEventDescription_ = new WText(result);
+
+  return result;
+}
 
 
 
+void FairDbWtTreeView::showClicked(const WMouseEvent &e)
+{
+  mouseEventType_->setText("clicked");
+  describe(e);
+}
+
+void FairDbWtTreeView::showDoubleClicked(const WMouseEvent &e)
+{
+  mouseEventType_->setText("doubleClicked");
+  describe(e);
+}
+
+void FairDbWtTreeView::showMouseWentOut(const WMouseEvent &e)
+{
+  mouseEventType_->setText("mouseWentOut");
+  describe(e);
+}
+
+void FairDbWtTreeView::showMouseWheel(const WMouseEvent &e)
+{
+  mouseEventType_->setText("mouseWheel");
+  describe(e);
+}
+
+void FairDbWtTreeView::showMouseWentOver(const WMouseEvent &e)
+{
+  mouseEventType_->setText("mouseWentOver");
+  describe(e);
+}
+
+void FairDbWtTreeView::showMouseMoved(const WMouseEvent &e)
+{
+  mouseEventType_->setText("mouseMoved");
+  describe(e);
+}
+
+void FairDbWtTreeView::showMouseWentUp(const WMouseEvent &e)
+{
+  mouseEventType_->setText("mouseWentUp");
+  describe(e);
+}
+
+void FairDbWtTreeView::showMouseWentDown(const WMouseEvent &e)
+{
+  mouseEventType_->setText("mouseWentDown");
+  describe(e);
+}
+
+
+namespace  my_strutils{
+  std::ostream &operator<<(std::ostream &o, Wt::WMouseEvent::Button b)
+  {
+    switch (b) {
+    case WMouseEvent::NoButton:
+      return o << "No button";
+    case WMouseEvent::LeftButton:
+      return o << "LeftButton";
+    case WMouseEvent::RightButton:
+      return o << "RightButton";
+    case WMouseEvent::MiddleButton:
+      return o << "MiddleButton";
+    default:
+      return o << "Unknown Button";
+    }
+  }
+
+  std::ostream &operator<<(std::ostream &o, Wt::Key k)
+  {
+    switch(k) {
+    default:
+    case Key_unknown : return o << "Key_unknown";
+    case Key_Enter : return o << "Key_Enter";
+    case Key_Tab : return o << "Key_Tab";
+    case Key_Backspace : return o << "Key_Backspace";
+    case Key_Shift : return o << "Key_Shift";
+    case Key_Control : return o << "Key_Control";
+    case Key_Alt : return o << "Key_Alt";
+    case Key_PageUp : return o << "Key_PageUp";
+    case Key_PageDown : return o << "Key_PageDown";
+    case Key_End : return o << "Key_End";
+    case Key_Home : return o << "Key_Home";
+    case Key_Left : return o << "Key_Left";
+    case Key_Up : return o << "Key_Up";
+    case Key_Right : return o << "Key_Right";
+    case Key_Down : return o << "Key_Down";
+    case Key_Insert : return o << "Key_Insert";
+    case Key_Delete : return o << "Key_Delete";
+    case Key_Escape : return o << "Key_Escape";
+    case Key_F1 : return o << "Key_F1";
+    case Key_F2 : return o << "Key_F2";
+    case Key_F3 : return o << "Key_F3";
+    case Key_F4 : return o << "Key_F4";
+    case Key_F5 : return o << "Key_F5";
+    case Key_F6 : return o << "Key_F6";
+    case Key_F7 : return o << "Key_F7";
+    case Key_F8 : return o << "Key_F8";
+    case Key_F9 : return o << "Key_F9";
+    case Key_F10 : return o << "Key_F10";
+    case Key_F11 : return o << "Key_F11";
+    case Key_F12 : return o << "Key_F12";
+    case Key_Space : return o << "Key_Space";
+    case Key_A : return o << "Key_A";
+    case Key_B : return o << "Key_B";
+    case Key_C : return o << "Key_C";
+    case Key_D : return o << "Key_D";
+    case Key_E : return o << "Key_E";
+    case Key_F : return o << "Key_F";
+    case Key_G : return o << "Key_G";
+    case Key_H : return o << "Key_H";
+    case Key_I : return o << "Key_I";
+    case Key_J : return o << "Key_J";
+    case Key_K : return o << "Key_K";
+    case Key_L : return o << "Key_L";
+    case Key_M : return o << "Key_M";
+    case Key_N : return o << "Key_N";
+    case Key_O : return o << "Key_O";
+    case Key_P : return o << "Key_P";
+    case Key_Q : return o << "Key_Q";
+    case Key_R : return o << "Key_R";
+    case Key_S : return o << "Key_S";
+    case Key_T : return o << "Key_T";
+    case Key_U : return o << "Key_U";
+    case Key_V : return o << "Key_V";
+    case Key_W : return o << "Key_W";
+    case Key_X : return o << "Key_X";
+    case Key_Y : return o << "Key_Y";
+    case Key_Z : return o << "Key_Z";
+    }
+  }
+
+  std::ostream &operator<<(std::ostream &o, Wt::WMouseEvent::Coordinates c)
+  {
+    return o << c.x << ", " << c.y;
+  }
+  std::string modifiersToString(const WFlags< KeyboardModifier >& modifiers)
+  {
+    std::stringstream o;
+    if (modifiers & ShiftModifier) o << "Shift ";
+    if (modifiers & ControlModifier) o << "Control ";
+    if (modifiers & AltModifier) o << "Alt ";
+    if (modifiers & MetaModifier) o << "Meta ";
+    if (modifiers == 0) o << "No modifiers";
+    return o.str();
+  }
+}
+
+
+
+void FairDbWtTreeView::describe(const Wt::WMouseEvent &e)
+{
+  std::stringstream ss;
+  ss << "Button: " << e.button() << "<br/>"
+     << "Modifiers: " << my_strutils::modifiersToString(e.modifiers()) << "<br/>";
+     //<< "Document coordinates: " << my_strutils::modifiersToString(e.document()) << "<br/>"
+     //<< "Window coordinates: " << e.window() << "<br/>"
+     //<< "Screen coordinates: " << e.screen() << "<br/>"
+     //<< "Widget coordinates: " << e.widget() << "<br/>"
+     //<< "DragDelta coordinates: " << e.dragDelta() << "<br/>"
+     //<< "Wheel delta: " << e.wheelDelta() << "<br/>";
+  mouseEventDescription_->setText(ss.str());
+}
 
 
 
